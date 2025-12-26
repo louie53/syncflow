@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config/env'; // 使用相对路径
+import authRoutes from './routes/auth.routes';
 
 const app = express();
 
@@ -25,5 +26,10 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
+
+// --- 路由挂载 ---
+// <--- 【2. 启用路由】
+// 以后凡是 '/api/auth' 开头的请求，都交给 authRoutes 处理
+app.use('/api/auth', authRoutes);
 
 export default app;
