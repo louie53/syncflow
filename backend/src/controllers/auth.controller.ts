@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import jwt from 'jsonwebtoken';
-import { LoginInput, RegisterInput } from '../schemas/auth.schema';
-// 👇 引入我们需要的所有 Service
-import { createUserService, findUserByEmailService, findUserByIdService } from '../services/auth.service';
-// 👇 引入我们定义的接口，为了让 TS 识别 req.userId
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { LoginInput, RegisterInput } from '../schemas/auth.schema';
+import { createUserService, findUserByEmailService, findUserByIdService } from '../services/auth.service';
+import { storeRefreshToken } from '../services/redis.service';
 
 // 1. 注册 (Register)
 export const register = async (req: Request<{}, {}, RegisterInput>, res: Response) => {
@@ -49,20 +48,31 @@ export const login = async (req: Request<{}, {}, LoginInput>, res: Response) => 
     }
     console.log('isValid', isValid)
     // 发 Token
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || 'default_secret',
-      { expiresIn: '1d' }
+      { expiresIn: '15m' } // Access Token 短期有效
     );
+
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET || 'default_secret',
+      { expiresIn: '7d' } // Refresh Token 长期有效
+    );
+
+    // 存储 Refresh Token 到 Redis (有效期 7 天)
+    await storeRefreshToken(user._id.toString(), refreshToken, 7 * 24 * 60 * 60);
 
     return res.status(StatusCodes.OK).json({
       message: "Login successful",
-      accessToken: token,
+      accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        role: user.role
       }
     });
   } catch (e: any) {

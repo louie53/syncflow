@@ -1,5 +1,5 @@
 'use client';
-
+import { authService } from '@/services/auth.service'; // Import the service
 import { useRouter } from 'next/navigation';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
-    login: (token: string, userData: User) => void;
+    login: (email: string, password: string) => Promise<void>; // 👈 暴露 login 方法
     logout: () => void;
     isLoading: boolean;
 }
@@ -31,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const initAuth = setTimeout(() => {
             const storedUser = localStorage.getItem('user');
             const token = localStorage.getItem('accessToken');
-
             if (storedUser && token) {
                 try {
                     setUser(JSON.parse(storedUser));
@@ -40,18 +39,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     localStorage.removeItem('user');
                 }
             }
-            setIsLoading(false);
+            setTimeout(() => {
+                setIsLoading(false);
+            }, 2000);
         }, 0);
 
         // 清理函数（防止组件卸载时内存泄漏）
         return () => clearTimeout(initAuth);
     }, []);
 
-    const login = (token: string, userData: User) => {
-        localStorage.setItem('accessToken', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        router.push('/');
+    const login = async (email: string, password: string) => {
+        try {
+            // 1. Invoke the service (调用服务)
+            const data = await authService.login(email, password);
+
+            // 2. Persist tokens (持久化 Token)
+            localStorage.setItem('accessToken', data.accessToken);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            // 3. Update Global State (更新全局状态)
+            setUser(data.user);
+
+            // 4. Navigation (路由跳转)
+            router.push('/');
+        } catch (error) {
+            // Re-throw the error to be handled by the UI Component
+            throw error;
+        }
     };
 
     const logout = () => {
