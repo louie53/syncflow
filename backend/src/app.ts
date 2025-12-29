@@ -10,7 +10,11 @@ const app = express();
 
 // --- 中间件配置 ---
 app.use(helmet()); // 安全头
-app.use(cors());   // 跨域支持
+// app.use(cors());   // 跨域支持
+app.use(cors({
+    origin: 'http://localhost:3000', // 🔒 只允许前端这个地址访问
+    credentials: true,               // 允许携带凭证 (如果你以后要用 Cookie 或 HTTP 认证)
+}));
 app.use(express.json()); // 解析 JSON 请求体
 
 // 开发环境下打印日志
