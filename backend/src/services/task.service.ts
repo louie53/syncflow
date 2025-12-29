@@ -1,4 +1,4 @@
-import { Task as TaskModel } from '../models/task.model';
+import TaskModel from '../models/task.model';
 import { CreateTaskInput, UpdateTaskInput } from '../schemas/task.schema';
 
 // 👨‍🍳 厨师 1：专门负责炒“创建任务”这道菜
@@ -7,13 +7,14 @@ export const createTaskService = async (input: CreateTaskInput, userId: string) 
     // 纯粹的数据库操作
     return TaskModel.create({
         ...input,
+        status: 'TODO',
         user: userId, // 关联用户
     });
 };
 
 // 👨‍🍳 厨师 2：专门负责“查找我的任务”
 export const findUserTasksService = async (userId: string) => {
-    return TaskModel.find({ user: userId });
+    return TaskModel.find({ user: userId }).sort({ createdAt: -1 });
 };
 
 // 👨‍🍳 厨师 3：专门负责“修改任务”

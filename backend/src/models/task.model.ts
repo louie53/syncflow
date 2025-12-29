@@ -1,39 +1,36 @@
+// backend/src/models/task.model.ts
 import mongoose, { Document, Schema } from 'mongoose';
 
-// 1. 定义接口 (Interface)
-// 这里的 user 字段类型是 string，因为在数据库里存的是 User 的 ID
 export interface ITask extends Document {
     title: string;
     description?: string;
-    isCompleted: boolean;
-    user: mongoose.Types.ObjectId; // 👈 重点：这就叫“关联”
+    status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+    user: mongoose.Types.ObjectId; // 👈 关键：关联到是哪个用户创建的
+    createdAt: Date;
+    updatedAt: Date;
 }
 
-// 2. 定义 Schema (图纸)
 const taskSchema = new Schema<ITask>(
     {
-        title: {
+        title: { type: String, required: true, trim: true },
+        description: { type: String, trim: true },
+        status: {
             type: String,
-            required: [true, 'Please provide a task title'],
-            trim: true,
+            enum: ['TODO', 'IN_PROGRESS', 'DONE'],
+            default: 'TODO',
         },
-        description: {
-            type: String,
-            default: '',
-        },
-        isCompleted: {
-            type: Boolean,
-            default: false,
-        },
-        // 👇 这一段是 MongoDB 建立关系的“标准咒语”
         user: {
-            type: mongoose.Schema.Types.ObjectId, // 类型是 ID
-            ref: 'User', // 关联哪个模型？关联 'User' 模型！
-            required: true, // 任务必须有主人，不能是无主孤魂
+            type: Schema.Types.ObjectId,
+            ref: 'User', // 关联 User 模型
+            required: true,
         },
     },
-    { timestamps: true } // 自动生成 createdAt 和 updatedAt
+    {
+        timestamps: true, // 自动管理 createdAt 和 updatedAt
+    }
 );
 
-// 3. 导出模型
-export const Task = mongoose.model<ITask>('Task', taskSchema);
+// 索引优化：经常需要查询 "某个用户的所有任务"
+taskSchema.index({ user: 1 });
+
+export default mongoose.model<ITask>('Task', taskSchema);

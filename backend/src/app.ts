@@ -4,13 +4,18 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config/env'; // 使用相对路径
 import authRoutes from './routes/auth.routes';
-import taskRoutes from './routes/task.routes'; // 👈 1. 引入新路由
+import taskRoutes from './routes/task.routes';
+import workspaceRoutes from './routes/workspace.routes';
 
 const app = express();
 
 // --- 中间件配置 ---
 app.use(helmet()); // 安全头
-app.use(cors());   // 跨域支持
+// app.use(cors());   // 跨域支持
+app.use(cors({
+    origin: 'http://localhost:3000', // 🔒 只允许前端这个地址访问
+    credentials: true,               // 允许携带凭证 (如果你以后要用 Cookie 或 HTTP 认证)
+}));
 app.use(express.json()); // 解析 JSON 请求体
 
 // 开发环境下打印日志
@@ -34,5 +39,6 @@ app.get('/', (req, res) => {
 // 以后凡是 '/api/auth' 开头的请求，都交给 authRoutes 处理
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes); // 👈 2. 挂载在这里
+app.use('/api/workspaces', workspaceRoutes); // 👈 挂载 Workspace 路由
 
 export default app;
