@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import jwt from 'jsonwebtoken';
-import { LoginInput, RegisterInput } from '../schemas/auth.schema';
-// 👇 引入我们需要的所有 Service
-import { createUserService, findUserByEmailService, findUserByIdService } from '../services/auth.service';
-// 👇 引入我们定义的接口，为了让 TS 识别 req.userId
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { LoginInput, RegisterInput } from '../schemas/auth.schema';
+import { createUserService, findUserByEmailService, findUserByIdService } from '../services/auth.service';
+import { deleteRefreshToken, getRefreshToken, storeRefreshToken } from '../services/redis.service';
 
 // 1. 注册 (Register)
 export const register = async (req: Request<{}, {}, RegisterInput>, res: Response) => {
@@ -49,20 +48,31 @@ export const login = async (req: Request<{}, {}, LoginInput>, res: Response) => 
     }
     console.log('isValid', isValid)
     // 发 Token
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || 'default_secret',
-      { expiresIn: '1d' }
+      { expiresIn: '15m' } // Access Token 短期有效
     );
+
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET || 'default_secret',
+      { expiresIn: '7d' } // Refresh Token 长期有效
+    );
+
+    // 存储 Refresh Token 到 Redis (有效期 7 天)
+    await storeRefreshToken(user._id.toString(), refreshToken, 7 * 24 * 60 * 60);
 
     return res.status(StatusCodes.OK).json({
       message: "Login successful",
-      accessToken: token,
+      accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        role: user.role
       }
     });
   } catch (e: any) {
@@ -89,5 +99,51 @@ export const getMe = async (req: Request, res: Response) => {
 
   } catch (e: any) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Error fetching profile', error: e.message });
+  }
+};
+
+// 4. 刷新 Token (Refresh Token)
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Refresh token is required' });
+    }
+
+    // 1. 验证 Token 是否合法且未过期
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as { userId: string };
+
+    // 2. 检查 Redis 中是否存在且一致 (防止已登出或被禁用)
+    const storedToken = await getRefreshToken(payload.userId);
+    if (!storedToken || storedToken !== token) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid refresh token' });
+    }
+
+    // 3. 签发新的 Access Token
+    const newAccessToken = jwt.sign(
+      { userId: payload.userId },
+      process.env.JWT_SECRET || 'default_secret',
+      { expiresIn: '15m' }
+    );
+
+    return res.status(StatusCodes.OK).json({
+      accessToken: newAccessToken
+    });
+  } catch (e: any) {
+    return res.status(StatusCodes.UNAUTHORIZED).json({ message: 'Invalid or expired refresh token' });
+  }
+};
+
+// 5. 登出 (Logout)
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AuthRequest).userId;
+    if (userId) {
+      await deleteRefreshToken(userId);
+    }
+    return res.status(StatusCodes.OK).json({ message: 'Logged out successfully' });
+  } catch (e: any) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: e.message });
   }
 };

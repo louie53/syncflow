@@ -8,6 +8,8 @@ export interface IUser extends Document {
   password: string;
   firstName: string;
   lastName: string;
+  role: 'admin' | 'editor' | 'member' | 'guest';
+  refreshToken?: string;
   createdAt: Date;
   updatedAt: Date;
   // 👇 重点在这里：显式声明我们有一个自定义方法
@@ -37,6 +39,15 @@ const userSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    role: {
+      type: String,
+      enum: ['admin', 'editor', 'member', 'guest'],
+      default: 'member',
+    },
+    refreshToken: {
+      type: String,
+      select: false,
     },
   },
   {
