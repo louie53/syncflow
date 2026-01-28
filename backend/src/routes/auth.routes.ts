@@ -14,7 +14,7 @@ const router = Router();
 // 👇 3. 把中间件插进去：先安检(validate)，再办事(register/login)
 router.post('/register', validateResource(registerSchema), register);
 router.post('/login', validateResource(loginSchema), login);
-router.post('/refresh', refreshToken);
+router.post('/refresh-token', refreshToken);
 router.post('/logout', authMiddleware, logout);
 
 // 👇 重点在这里！
