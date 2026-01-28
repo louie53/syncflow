@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/auth-context';
+import { useWorkspaces } from '@/hooks/useWorkspaces'; // 👈 1. 引入工作区 Hook
 import { taskService } from '@/services/task.service';
 import { Task, TaskStatus } from '@/types/task';
 import { useCallback, useEffect, useState } from 'react';
@@ -6,24 +7,45 @@ import { useCallback, useEffect, useState } from 'react';
 export function useTasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
     const { user } = useAuth();
+    // 👇 2. 获取工作区列表
+    const { workspaces, loading: workspaceLoading } = useWorkspaces();
 
     const fetchTasks = useCallback(async () => {
         if (!user) return;
+
         try {
             setIsLoading(true);
-            const data = await taskService.getAll(); // 👈 调用 Service，极其优雅
+            // 👇 3. 尝试只获取当前工作区的任务 (如果有工作区的话)
+            // 如果列表为空，暂时传 undefined，后端会返回空列表或报错
+            const currentWorkspaceId = workspaces[0]?._id;
+
+            const data = await taskService.getAll(currentWorkspaceId);
             setTasks(data);
         } catch (error) {
             console.error('Failed to fetch tasks', error);
         } finally {
             setIsLoading(false);
         }
-    }, [user]);
+    }, [user, workspaces]); // 依赖项加上 workspaces
 
-    const createTask = async (title: string) => {
+    const createTask = async (payload: { title: string; description?: string; priority?: string }) => {
         try {
-            const newTask = await taskService.create({ title });
+            // 👇 4. 核心逻辑：如果没有工作区，拦截操作
+            const currentWorkspaceId = workspaces[0]?._id;
+
+            if (!currentWorkspaceId) {
+                alert("请先在侧边栏创建一个工作区！");
+                return false;
+            }
+
+            // 👇 5. 传 workspaceId 给 Service
+            const newTask = await taskService.create({
+                ...payload, // 展开 title, description, priority
+                workspaceId: currentWorkspaceId
+            });
+
             setTasks((prev) => [newTask, ...prev]);
             return true;
         } catch (error) {
@@ -33,18 +55,16 @@ export function useTasks() {
     };
 
     const updateStatus = async (id: string, newStatus: TaskStatus) => {
-        // 乐观更新 (先变 UI)
         setTasks((prev) => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
         try {
             await taskService.updateStatus(id, newStatus);
         } catch (error) {
             console.error('Update failed', error);
-            fetchTasks(); // 失败回滚
+            fetchTasks();
         }
     };
 
     const deleteTask = async (id: string) => {
-        // 乐观更新
         setTasks((prev) => prev.filter(t => t._id !== id));
         try {
             await taskService.delete(id);
@@ -54,9 +74,19 @@ export function useTasks() {
         }
     };
 
+    // 只有当工作区加载完了再去取任务，避免空跑
     useEffect(() => {
-        fetchTasks();
-    }, [fetchTasks]);
+        if (!workspaceLoading) {
+            fetchTasks();
+        }
+    }, [fetchTasks, workspaceLoading]);
 
-    return { tasks, isLoading, createTask, updateStatus, deleteTask };
+    return {
+        tasks,
+        isLoading,
+        createTask,
+        updateStatus,
+        deleteTask,
+        refreshTasks: fetchTasks // ✅ 新增这一行
+    };
 }

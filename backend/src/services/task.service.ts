@@ -1,32 +1,54 @@
-import TaskModel from '../models/task.model';
+import mongoose from 'mongoose';
+import { Task as TaskModel } from '../models/task.model';
 import { CreateTaskInput, UpdateTaskInput } from '../schemas/task.schema';
 
-// 👨‍🍳 厨师 1：专门负责炒“创建任务”这道菜
-// 注意：这里不需要 req 和 res，它只关心数据 (input)
-export const createTaskService = async (input: CreateTaskInput, userId: string) => {
-    // 纯粹的数据库操作
+// 👨‍🍳 厨师 1：创建任务 (配方升级：加了 workspaceId，user 改名 createdBy)
+export const createTaskService = async (
+    input: CreateTaskInput & { workspaceId: string }, // 👈 强制要求带上 workspaceId
+    userId: string
+) => {
     return TaskModel.create({
         ...input,
         status: 'TODO',
-        user: userId, // 关联用户
+        createdBy: new mongoose.Types.ObjectId(userId), // ✅ 修正：user -> createdBy
+        workspaceId: new mongoose.Types.ObjectId(input.workspaceId) // ✅ 新增：关联工作区
     });
 };
 
-// 👨‍🍳 厨师 2：专门负责“查找我的任务”
+// 👨‍🍳 厨师 2：查找任务 (逻辑升级)
 export const findUserTasksService = async (userId: string) => {
-    return TaskModel.find({ user: userId }).sort({ createdAt: -1 });
+    const objectId = new mongoose.Types.ObjectId(userId);
+
+    // 查找：我是创建者 OR 我是执行者
+    return TaskModel.find({
+        $or: [
+            { createdBy: objectId }, // ✅ 修正：user -> createdBy
+            { assigneeId: objectId }
+        ]
+    }).sort({ createdAt: -1 });
 };
 
-// 👨‍🍳 厨师 3：专门负责“修改任务”
+// 👨‍🍳 厨师 3：修改任务
 export const findAndUpdateTaskService = async (
-    query: { _id: string; user: string }, // 查询条件：既要是这个ID，又要是这个人的
-    update: UpdateTaskInput, // 更新内容
-    options: { new: true } // 返回更新后的数据
+    query: { _id: string; userId: string }, // 注意：这里传进来的参数名我改清晰了一点
+    update: UpdateTaskInput,
+    options: { new: true }
 ) => {
-    return TaskModel.findOneAndUpdate(query, update, options);
+    return TaskModel.findOneAndUpdate(
+        {
+            _id: new mongoose.Types.ObjectId(query._id),
+            // 只有创建者能改 (或者你可以放宽限制)
+            createdBy: new mongoose.Types.ObjectId(query.userId) // ✅ 修正
+        },
+        update,
+        options
+    );
 };
 
-// 👨‍🍳 厨师 4：专门负责“删除任务”
-export const deleteTaskService = async (query: { _id: string; user: string }) => {
-    return TaskModel.deleteOne(query);
+// 👨‍🍳 厨师 4：删除任务
+export const deleteTaskService = async (query: { _id: string; userId: string }) => {
+    return TaskModel.deleteOne({
+        _id: new mongoose.Types.ObjectId(query._id),
+        createdBy: new mongoose.Types.ObjectId(query.userId) // ✅ 修正
+    });
 };
