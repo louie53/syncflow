@@ -1,60 +1,80 @@
 import axios from 'axios';
 
-// 1. 定义 Base URL
-// 优先读环境变量，如果没有（比如本地开发），默认回退到 localhost:4000
-// 这样就算你忘了配 .env，项目也能跑起来
+// 定义 API 基础 URL
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
     baseURL,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// 2. 请求拦截器 (Request Interceptor)
-apiClient.interceptors.request.use(
-    (config) => {
-        // 🛑 关键修复：增加 (typeof window !== 'undefined') 判断
-        // Next.js 有时会在服务端预渲染，服务端没有 localStorage，直接调用会报错
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('accessToken');
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+// 👇 1. 请求拦截器
+apiClient.interceptors.request.use((config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
     }
-);
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
 
-// 3. 响应拦截器 (Response Interceptor)
+// 👇 2. 响应拦截器 (Response Interceptor)
 apiClient.interceptors.response.use(
     (response) => response,
-    (error) => {
-        // 🛑 全局 401 处理：Token 过期或无效时，自动登出
-        if (error.response?.status === 401) {
-            console.warn('🔒 Unauthorized: Token invalid or expired.');
+    async (error) => {
+        const originalRequest = error.config;
 
-            if (typeof window !== 'undefined') {
-                // 1. 清除本地脏数据
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('user');
+        console.log("🚨 拦截器捕获到错误:", error.response?.status);
 
-                // 2. 强制跳转回登录页
-                // 注意：这里不能用 Next.js 的 useRouter，因为这不是 React 组件
-                // 使用 window.location.href 是最安全的方法
-                // 只有当当前不在登录页时才跳转，防止无限刷新
-                if (!window.location.pathname.includes('/login')) {
-                    window.location.href = '/login';
+        // 如果是 401 错误，且不是重试请求
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            console.log("🔄 准备尝试刷新 Token...");
+            originalRequest._retry = true;
+
+            try {
+                // 1. 检查有没有 Refresh Token
+                const refreshToken = localStorage.getItem('refreshToken');
+                console.log("📦 本地 Refresh Token:", refreshToken ? "✅ 存在" : "❌ 缺失");
+
+                if (!refreshToken) {
+                    throw new Error("No refresh token available");
                 }
+
+                // 2. 发送刷新请求
+                console.log("🚀 发送 /auth/refresh-token 请求...");
+                // ⚠️ 确认这里的路径和参数名与后端完全一致
+                const { data } = await axios.post(`${baseURL}/auth/refresh-token`, {
+                    token: refreshToken,
+                });
+
+                console.log("✅ 刷新成功! 新 Access Token:", data.accessToken ? "获取到了" : "没拿到");
+
+                // 3. 保存新 Token
+                localStorage.setItem('accessToken', data.accessToken);
+
+                // 4. 重试原请求
+                originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+
+                console.log("🔄 重试原请求...");
+                return apiClient(originalRequest);
+
+            } catch (refreshError) {
+                console.error("💀 刷新流程失败:", refreshError);
+
+                // 清除数据并跳转
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+
+                return Promise.reject(refreshError);
             }
         }
+
         return Promise.reject(error);
     }
 );
-
-// 使用命名导出 (Named Export) 通常比 Default Export 更容易重构
-export { apiClient };

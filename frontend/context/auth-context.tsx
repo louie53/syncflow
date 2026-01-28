@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // 2. Persist tokens (持久化 Token)
             localStorage.setItem('accessToken', data.accessToken);
+            localStorage.setItem('refreshToken', data.refreshToken);
             localStorage.setItem('user', JSON.stringify(data.user));
             // 3. Update Global State (更新全局状态)
             setUser(data.user);
@@ -69,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = () => {
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         setUser(null);
         router.push('/login');
