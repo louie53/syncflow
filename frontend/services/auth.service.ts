@@ -1,5 +1,5 @@
 // 👇 Import the shared instance
-import apiClient from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 export const authService = {
     login: async (email: string, password: string) => {

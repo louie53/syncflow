@@ -33,10 +33,10 @@ export const createTask = async (
 export const getMyTasks = async (req: Request, res: Response) => {
     try {
         const userId = (req as AuthRequest).userId;
-
+        console.log('userId:', userId);
         // 🛎️ 喊人
         const tasks = await findUserTasksService(userId!);
-
+        console.log('tasks', tasks)
         return res.status(StatusCodes.OK).json({ tasks });
     } catch (e: any) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: e.message });

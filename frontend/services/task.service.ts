@@ -1,11 +1,12 @@
 import { CreateTaskDto, Task, TaskStatus } from '@/types/task';
 // 👇 Import the shared instance
-import apiClient from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 export const taskService = {
     getAll: async () => {
         // Full URL: http://localhost:4000/api/tasks
         const { data } = await apiClient.get<{ tasks: Task[] }>('/tasks');
+        console.log('data', data)
         return data.tasks;
     },
 
