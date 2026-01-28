@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// 定义 API 基础 URL
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export const apiClient = axios.create({
