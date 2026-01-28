@@ -3,7 +3,7 @@ import axios from 'axios';
 // 1. 定义 Base URL
 // 优先读环境变量，如果没有（比如本地开发），默认回退到 localhost:4000
 // 这样就算你忘了配 .env，项目也能跑起来
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 const apiClient = axios.create({
     baseURL,
