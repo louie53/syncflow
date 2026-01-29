@@ -11,7 +11,7 @@ export function useWorkspaces() {
             setLoading(true);
             const data = await workspaceService.getAll();
             setWorkspaces(data);
-        } catch (err: unknown) { // ✅ 改动 1: 把 any 改为 unknown
+        } catch (err: unknown) {
             console.error("Failed to fetch workspaces", err);
 
             // ✅ 改动 2: 进行类型检查
