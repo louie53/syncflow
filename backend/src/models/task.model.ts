@@ -1,24 +1,24 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-export interface ITask extends Document {
+// 1. 纯数据接口 (用于创建/输入) - ❌ 不要在这里 extends Document
+export interface ITask {
     title: string;
     description?: string;
     status: "TODO" | "IN_PROGRESS" | "DONE";
-
-    // 👇 核心改动：任务属于工作区
+    priority: "LOW" | "MEDIUM" | "HIGH";
     workspaceId: mongoose.Types.ObjectId;
-
-    // 👇 新增：任务是谁创建的？（方便追溯）
     createdBy: mongoose.Types.ObjectId;
-
-    // 👇 新增：任务指派给谁做？（可能是别人）
     assigneeId?: mongoose.Types.ObjectId;
+}
 
+// 2. 文档接口 (用于数据库返回) - ✅ 这里才 extends Document
+// 这样 Task.create() 就不会被 Document 里的属性干扰了
+export interface ITaskDocument extends ITask, Document {
     createdAt: Date;
     updatedAt: Date;
 }
 
-const taskSchema = new Schema<ITask>(
+const taskSchema = new Schema<ITaskDocument>(
     {
         title: { type: String, required: true, trim: true },
         description: { type: String },
@@ -27,28 +27,17 @@ const taskSchema = new Schema<ITask>(
             enum: ["TODO", "IN_PROGRESS", "DONE"],
             default: "TODO",
         },
-
-        // 必须属于一个 Workspace
-        workspaceId: {
-            type: Schema.Types.ObjectId,
-            ref: "Workspace",
-            required: true
+        priority: {
+            type: String,
+            enum: ["LOW", "MEDIUM", "HIGH"],
+            default: "MEDIUM",
         },
-
-        // 记录谁创建了这个任务
-        createdBy: {
-            type: Schema.Types.ObjectId,
-            ref: "User",
-            required: true
-        },
-
-        // 任务指派给谁 (可选)
-        assigneeId: {
-            type: Schema.Types.ObjectId,
-            ref: "User"
-        },
+        workspaceId: { type: Schema.Types.ObjectId, ref: "Workspace", required: true },
+        createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+        assigneeId: { type: Schema.Types.ObjectId, ref: "User" },
     },
     { timestamps: true }
 );
 
-export const Task = mongoose.model<ITask>("Task", taskSchema);
+// 3. 导出 Model，泛型使用 ITaskDocument
+export const Task = mongoose.model<ITaskDocument>("Task", taskSchema);

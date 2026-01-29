@@ -1,8 +1,9 @@
 import { useAuth } from '@/context/auth-context';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { taskService } from '@/services/task.service';
-import { Task, TaskStatus } from '@/types/task';
-import { useSearchParams } from 'next/navigation'; // 👈 1. 引入这个
+// 👇 1. 引入 TaskPriority
+import { Task, TaskPriority, TaskStatus } from '@/types/task';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 export function useTasks() {
@@ -12,21 +13,16 @@ export function useTasks() {
     const { user } = useAuth();
     const { workspaces, loading: workspaceLoading } = useWorkspaces();
 
-    // 👇 2. 获取 URL 上的 workspaceId 参数
     const searchParams = useSearchParams();
     const urlWorkspaceId = searchParams.get('workspaceId');
 
-    // 👇 3. 核心逻辑：优先用 URL 里的 ID，如果没有（比如刚进首页），就默认用第一个
     const activeWorkspaceId = urlWorkspaceId || workspaces[0]?._id;
 
     const fetchTasks = useCallback(async () => {
-        // 如果没有用户，或者工作区还没加载完，先不发请求
         if (!user || workspaceLoading) return;
 
         try {
             setIsLoading(true);
-
-            // 使用我们计算出来的 activeWorkspaceId
             const data = await taskService.getAll(activeWorkspaceId);
             setTasks(data);
         } catch (error) {
@@ -34,16 +30,16 @@ export function useTasks() {
         } finally {
             setIsLoading(false);
         }
-    }, [user, activeWorkspaceId, workspaceLoading]); // 依赖项加上 activeWorkspaceId
+    }, [user, activeWorkspaceId, workspaceLoading]);
 
-    const createTask = async (payload: { title: string; description?: string; priority?: string }) => {
+    // 👇 2. 修改 payload 类型：priority?: string -> priority?: TaskPriority
+    const createTask = async (payload: { title: string; description?: string; priority?: TaskPriority }) => {
         try {
             if (!activeWorkspaceId) {
                 alert("请先创建一个工作区！");
                 return false;
             }
 
-            // 使用当前选中的工作区 ID
             const newTask = await taskService.create({
                 ...payload,
                 workspaceId: activeWorkspaceId
@@ -58,28 +54,40 @@ export function useTasks() {
     };
 
     const updateStatus = async (id: string, newStatus: TaskStatus) => {
-        // 乐观更新 UI
         setTasks((prev) => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
         try {
             await taskService.updateStatus(id, newStatus);
         } catch (error) {
             console.error('Update failed', error);
-            fetchTasks(); // 失败回滚
+            fetchTasks();
         }
     };
 
     const deleteTask = async (id: string) => {
-        // 乐观更新 UI
         setTasks((prev) => prev.filter(t => t._id !== id));
         try {
             await taskService.delete(id);
         } catch (error) {
             console.error('Delete failed', error);
-            fetchTasks(); // 失败回滚
+            fetchTasks();
         }
     };
 
-    // 当 activeWorkspaceId 变化时（比如点击了侧边栏），自动重新获取数据
+    // 👇 3. 修改 payload 类型：priority?: string -> priority?: TaskPriority
+    const updateTask = async (id: string, payload: { title?: string; description?: string; priority?: TaskPriority }) => {
+        // 乐观更新：现在这里的类型匹配了，TS 不会报错了
+        setTasks((prev) => prev.map(t =>
+            t._id === id ? { ...t, ...payload } : t
+        ));
+
+        try {
+            await taskService.update(id, payload);
+        } catch (error) {
+            console.error('Update failed', error);
+            fetchTasks();
+        }
+    };
+
     useEffect(() => {
         fetchTasks();
     }, [fetchTasks]);
@@ -91,6 +99,7 @@ export function useTasks() {
         updateStatus,
         deleteTask,
         refreshTasks: fetchTasks,
-        activeWorkspaceId // 把这个也导出去，以后页面上可能会用到
+        activeWorkspaceId,
+        updateTask // 导出这个方法
     };
 }

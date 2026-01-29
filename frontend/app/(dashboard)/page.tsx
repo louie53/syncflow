@@ -7,7 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { useTasks } from "@/hooks/use-tasks";
 
 export default function DashboardPage() {
-  const { tasks, isLoading, updateStatus, deleteTask, refreshTasks } = useTasks();
+  const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
   const { user } = useAuth();
 
   // 计算未完成的任务数量
@@ -54,6 +54,7 @@ export default function DashboardPage() {
               task={task}
               onStatusChange={updateStatus}
               onDelete={deleteTask}
+              onUpdate={updateTask}
             />
           ))
         )}

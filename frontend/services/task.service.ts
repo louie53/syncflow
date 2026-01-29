@@ -24,6 +24,11 @@ export const taskService = {
         return data.task;
     },
 
+    update: async (id: string, payload: { title?: string; description?: string; priority?: string }) => {
+        const { data } = await apiClient.patch<Task>(`/tasks/${id}`, payload);
+        return data;
+    },
+
     delete: async (id: string) => {
         await apiClient.delete(`/tasks/${id}`);
     }
