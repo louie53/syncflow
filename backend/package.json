@@ -8,7 +8,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "nest build",
     "start": "node dist/server.js",
     "docker:db": "docker-compose -f docker-compose.dev.yml up -d",
     "docker:stop": "docker-compose -f docker-compose.dev.yml stop",
