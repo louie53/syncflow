@@ -23,6 +23,8 @@ export function useTasks() {
 
         try {
             setIsLoading(true);
+
+            // 使用我们计算出来的 activeWorkspaceId
             const data = await taskService.getAll(activeWorkspaceId);
             setTasks(data);
         } catch (error) {
@@ -30,7 +32,7 @@ export function useTasks() {
         } finally {
             setIsLoading(false);
         }
-    }, [user, activeWorkspaceId, workspaceLoading]);
+    }, [user, activeWorkspaceId, workspaceLoading]); // 依赖项加上 activeWorkspaceId
 
     // 👇 2. 修改 payload 类型：priority?: string -> priority?: TaskPriority
     const createTask = async (payload: { title: string; description?: string; priority?: TaskPriority }) => {
@@ -40,6 +42,7 @@ export function useTasks() {
                 return false;
             }
 
+            // 使用当前选中的工作区 ID
             const newTask = await taskService.create({
                 ...payload,
                 workspaceId: activeWorkspaceId
@@ -54,22 +57,24 @@ export function useTasks() {
     };
 
     const updateStatus = async (id: string, newStatus: TaskStatus) => {
+        // 乐观更新 UI
         setTasks((prev) => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
         try {
             await taskService.updateStatus(id, newStatus);
         } catch (error) {
             console.error('Update failed', error);
-            fetchTasks();
+            fetchTasks(); // 失败回滚
         }
     };
 
     const deleteTask = async (id: string) => {
+        // 乐观更新 UI
         setTasks((prev) => prev.filter(t => t._id !== id));
         try {
             await taskService.delete(id);
         } catch (error) {
             console.error('Delete failed', error);
-            fetchTasks();
+            fetchTasks(); // 失败回滚
         }
     };
 
