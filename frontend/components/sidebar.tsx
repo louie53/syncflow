@@ -51,6 +51,14 @@ export function Sidebar() {
                                     <div
                                         key={ws._id}
                                         onClick={() => handleWorkspaceClick(ws._id)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleWorkspaceClick(ws._id);
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
                                         className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-all ${isActive
                                             ? "bg-white text-blue-600 shadow-sm"
                                             : "text-gray-700 hover:bg-white/50"

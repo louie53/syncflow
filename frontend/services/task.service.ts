@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { CreateTaskDto, Task, TaskStatus } from '@/types/task';
+import { CreateTaskDto, Task, TaskPriority, TaskStatus } from '@/types/task';
 
 export const taskService = {
     // 1. 获取任务列表 (支持按工作区筛选)
@@ -22,6 +22,11 @@ export const taskService = {
     updateStatus: async (id: string, status: TaskStatus) => {
         const { data } = await apiClient.put<{ task: Task }>(`/tasks/${id}`, { status });
         return data.task;
+    },
+
+    update: async (id: string, payload: { title?: string; description?: string; priority?: TaskPriority }) => {
+        const { data } = await apiClient.patch<Task>(`/tasks/${id}`, payload);
+        return data;
     },
 
     delete: async (id: string) => {

@@ -28,7 +28,11 @@ router.post('/', validateResource(createTaskSchema), createTask);
 // 3. 修改任务 (PUT /:id)
 router.put('/:id', validateResource(updateTaskSchema), updateTask);
 
-// 4. 删除任务 (DELETE /:id)
+// ✨ 4. 修改任务 (PATCH - 这里的 PATCH 也必须加上验证！)
+// 使用同样的 updateTaskSchema 即可
+router.patch('/:id', validateResource(updateTaskSchema), updateTask);
+
+// 5. 删除任务
 router.delete('/:id', validateResource(getTaskSchema), deleteTask);
 
 export default router;

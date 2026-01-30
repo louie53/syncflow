@@ -2,27 +2,27 @@ import { Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { Task } from '../models/task.model'; // 👈 关键：直接引用 Model，跳过旧 Service
+import { Task } from '../models/task.model';
 
-// 1. 创建任务 (适配工作区)
+// 1. 创建任务 (适配工作区 + 优先级)
 export const createTask = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.userId;
-        // 前端发过来的时候，除了 title，还必须带上 workspaceId
-        const { title, description, status, workspaceId } = req.body;
+        // ✨ 改动：解构时加上 priority
+        const { title, description, status, priority, workspaceId } = req.body;
 
         if (!workspaceId) {
             return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Workspace ID is required' });
         }
 
-        // 直接跟数据库对话
         const task = await Task.create({
             title,
             description,
             status: status || 'TODO',
-            workspaceId: new mongoose.Types.ObjectId(workspaceId as string), // 关联工作区
-            createdBy: new mongoose.Types.ObjectId(userId), // 关联创建者
-            // assigneeId: new mongoose.Types.ObjectId(userId) // 可选：默认分派给自己
+            priority: priority || 'MEDIUM', // ✨ 改动：如果没有传，默认 MEDIUM
+            workspaceId: new mongoose.Types.ObjectId(workspaceId as string),
+            createdBy: new mongoose.Types.ObjectId(userId),
+            // assigneeId: new mongoose.Types.ObjectId(userId) 
         });
 
         return res.status(StatusCodes.CREATED).json({ task });
@@ -36,23 +36,19 @@ export const createTask = async (req: AuthRequest, res: Response) => {
 export const getMyTasks = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.userId;
-        const { workspaceId } = req.query; // 支持前端筛选 ?workspaceId=xxx
+        const { workspaceId } = req.query;
 
         const query: any = {};
 
-        // 逻辑 A: 如果前端传了 workspaceId，就只查那个工作区的任务
         if (workspaceId) {
             query.workspaceId = new mongoose.Types.ObjectId(workspaceId as string);
-        }
-        // 逻辑 B: 如果没传，就查所有"跟我有关"的任务
-        else {
+        } else {
             query.$or = [
                 { createdBy: new mongoose.Types.ObjectId(userId) },
                 { assigneeId: new mongoose.Types.ObjectId(userId) }
             ];
         }
 
-        // populate 让你能看到任务属于哪个工作区的名字
         const tasks = await Task.find(query)
             .populate('workspaceId', 'name')
             .sort({ createdAt: -1 });
@@ -64,16 +60,16 @@ export const getMyTasks = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 3. 修改任务
+// 3. 修改任务 (解决 404 的关键逻辑在这里)
 export const updateTask = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const update = req.body;
+        const update = req.body; // 这里会包含 title, description, priority
 
         const updatedTask = await Task.findByIdAndUpdate(
             new mongoose.Types.ObjectId(id),
             update,
-            { new: true }
+            { new: true } // 返回修改后的新数据
         );
 
         if (!updatedTask) {
@@ -94,11 +90,11 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
 
         const result = await Task.deleteOne({
             _id: new mongoose.Types.ObjectId(id),
-            createdBy: new mongoose.Types.ObjectId(userId) // 安全起见：只有创建者能删
+            // createdBy: new mongoose.Types.ObjectId(userId) // 如果你想只有创建者能删，就取消注释
         });
 
         if (result.deletedCount === 0) {
-            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Task not found or permission denied' });
+            return res.status(StatusCodes.NOT_FOUND).json({ message: 'Task not found' });
         }
 
         return res.status(StatusCodes.OK).json({ message: 'Task deleted' });
