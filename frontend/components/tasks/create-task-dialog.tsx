@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"; // ✅ 确保这里引入了 Button
 import {
     Dialog,
     DialogContent,
@@ -9,7 +9,6 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
     Select,
     SelectContent,
@@ -19,84 +18,143 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useTasks } from "@/hooks/use-tasks";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { Task, TaskPriority } from "@/types/task";
+import { Loader2, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
-
-// 👇 1. 定义接口，接收 onSuccess 回调
 interface CreateTaskDialogProps {
-    onSuccess?: () => void;
+    onSuccess: () => void;
+    taskToEdit?: Task;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export function CreateTaskDialog({ onSuccess }: CreateTaskDialogProps) {
-    const [open, setOpen] = useState(false);
+export function CreateTaskDialog({ onSuccess, taskToEdit, open, onOpenChange }: CreateTaskDialogProps) {
+    // 内部状态 (如果是新建模式，用这个控制显隐)
+    const [internalOpen, setInternalOpen] = useState(false);
+
+    // 判断是"受控模式(Edit)"还是"自控模式(Create)"
+    // 如果 open 属性存在 (不为 undefined)，说明是受控模式 (Edit)
+    const isControlled = open !== undefined;
+
+    // 真正使用的开关状态
+    const showOpen = isControlled ? open : internalOpen;
+    const setShowOpen = isControlled ? onOpenChange! : setInternalOpen;
+
+    const { createTask, updateTask } = useTasks();
+    const [isLoading, setIsLoading] = useState(false);
+
+    // 表单状态
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [priority, setPriority] = useState("MEDIUM");
-    const [loading, setLoading] = useState(false);
+    const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
 
-    const { createTask } = useTasks();
+    // 当 taskToEdit 变化或弹窗打开时，填充表单
+    useEffect(() => {
+        if (showOpen && taskToEdit) {
+            setTitle(taskToEdit.title);
+            setDescription(taskToEdit.description || "");
+            setPriority(taskToEdit.priority || "MEDIUM");
+        } else if (showOpen && !taskToEdit) {
+            // 如果是新建模式打开，重置表单
+            setTitle("");
+            setDescription("");
+            setPriority("MEDIUM");
+        }
+    }, [showOpen, taskToEdit]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) return;
 
-        setLoading(true);
-        // 调用 Hook 创建任务
-        const success = await createTask({
-            title,
-            description,
-            priority // 如果你后端没加 priority 字段，暂时可以先传，后端会忽略，不影响
-        });
+        setIsLoading(true);
+        try {
+            if (taskToEdit) {
+                // 编辑逻辑
+                await updateTask(taskToEdit._id, { title, description, priority });
+                toast.success("Task updated");
+            } else {
+                // 创建逻辑 (不需要传 status，默认为 TODO)
+                await createTask({ title, description, priority });
+                toast.success("Task created");
+            }
 
-        setLoading(false);
-
-        if (success) {
-            setOpen(false);
-            setTitle("");
-            setDescription("");
-            setPriority("MEDIUM");
-        }
-
-        // 👇 3. 关键点：创建成功后，通知父组件刷新
-        if (onSuccess) {
+            setShowOpen(false);
             onSuccess();
+
+            // 重置表单
+            if (!taskToEdit) {
+                setTitle("");
+                setDescription("");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Something went wrong");
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Task
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+        <Dialog open={showOpen} onOpenChange={setShowOpen}>
+            {/* ✨✨✨ 修复重点 ✨✨✨
+         只有在"非受控模式" (也就是在 Header 上作为新建按钮使用时)
+         才渲染这个 DialogTrigger。
+         
+         Edit 模式下，触发器在 DropdownMenu 里，所以这里不需要 Trigger。
+      */}
+            {!isControlled && (
+                <DialogTrigger asChild>
+                    {/* 这里显式加上 bg-blue-600 确保它是蓝色的，防止默认样式被覆盖 */}
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Task
+                    </Button>
+                </DialogTrigger>
+            )}
+
+            <DialogContent className="sm:max-w-[425px] bg-white">
                 <DialogHeader>
-                    <DialogTitle>Create New Task</DialogTitle>
+                    <DialogTitle>
+                        {taskToEdit ? "Edit Task" : "Create New Task"}
+                    </DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-                    {/* 任务标题 */}
+
+                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                     <div className="space-y-2">
-                        <Label htmlFor="title">Task Title <span className="text-red-500">*</span></Label>
+                        <label className="text-sm font-medium">Title</label>
                         <Input
-                            id="title"
-                            placeholder="e.g. Fix login bug"
+                            placeholder="What needs to be done?"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            disabled={loading}
+                            disabled={isLoading}
+                            autoFocus
                         />
                     </div>
 
-                    {/* 优先级选择 */}
                     <div className="space-y-2">
-                        <Label>Priority</Label>
-                        <Select value={priority} onValueChange={setPriority}>
-                            <SelectTrigger>
-                                <SelectValue />
+                        <label className="text-sm font-medium">Description</label>
+                        <Textarea
+                            placeholder="Add details..."
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            disabled={isLoading}
+                            rows={3}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Priority</label>
+                        <Select
+                            value={priority}
+                            onValueChange={(v) => setPriority(v as TaskPriority)}
+                            disabled={isLoading}
+                        >
+                            <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="Select priority" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-white">
                                 <SelectItem value="LOW">Low</SelectItem>
                                 <SelectItem value="MEDIUM">Medium</SelectItem>
                                 <SelectItem value="HIGH">High</SelectItem>
@@ -104,25 +162,18 @@ export function CreateTaskDialog({ onSuccess }: CreateTaskDialogProps) {
                         </Select>
                     </div>
 
-                    {/* 任务描述 */}
-                    <div className="space-y-2">
-                        <Label htmlFor="desc">Description</Label>
-                        <Textarea
-                            id="desc"
-                            placeholder="Add more details..."
-                            className="min-h-[100px]"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            disabled={loading}
-                        />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-2">
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowOpen(false)}
+                            disabled={isLoading}
+                        >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={!title.trim() || loading}>
-                            {loading ? "Creating..." : "Create Task"}
+                        <Button type="submit" disabled={isLoading || !title.trim()} className="bg-black text-white hover:bg-gray-800">
+                            {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {taskToEdit ? "Save Changes" : "Create Task"}
                         </Button>
                     </div>
                 </form>

@@ -5,6 +5,7 @@ import { taskService } from '@/services/task.service';
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from "sonner"; // 引入
 
 export function useTasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -49,9 +50,11 @@ export function useTasks() {
             });
 
             setTasks((prev) => [newTask, ...prev]);
+            toast.success("Task created successfully");
             return true;
         } catch (error) {
             console.error('Failed to create task', error);
+            toast.error("Failed to create task");
             return false;
         }
     };
@@ -61,8 +64,10 @@ export function useTasks() {
         setTasks((prev) => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
         try {
             await taskService.updateStatus(id, newStatus);
+            // toast.success("Task updated successfully");
         } catch (error) {
             console.error('Update failed', error);
+            toast.error("Failed to update task");
             fetchTasks(); // 失败回滚
         }
     };
@@ -72,8 +77,10 @@ export function useTasks() {
         setTasks((prev) => prev.filter(t => t._id !== id));
         try {
             await taskService.delete(id);
+            toast.success("Task deleted successfully");
         } catch (error) {
             console.error('Delete failed', error);
+            toast.error("Failed to delete task");
             fetchTasks(); // 失败回滚
         }
     };
@@ -87,8 +94,10 @@ export function useTasks() {
 
         try {
             await taskService.update(id, payload);
+            toast.success("Task updated successfully");
         } catch (error) {
             console.error('Update failed', error);
+            toast.error("Failed to update task");
             fetchTasks();
         }
     };
