@@ -1,4 +1,5 @@
 'use client';
+
 import { authService } from '@/services/auth.service'; // Import the service
 import { useRouter } from 'next/navigation';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
@@ -10,9 +11,19 @@ interface User {
     lastName: string;
 }
 
+// ✨ 定义注册需要的数据类型
+interface RegisterData {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+}
+
 interface AuthContextType {
     user: User | null;
-    login: (email: string, password: string) => Promise<void>; // 👈 暴露 login 方法
+    login: (email: string, password: string) => Promise<void>;
+    // ✨ 新增 register 方法定义
+    register: (data: RegisterData) => Promise<void>;
     logout: () => void;
     isLoading: boolean;
 }
@@ -24,10 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    // 1. 初始化检查：刷新页面时，尝试从 localStorage 恢复登录状态
+    // 1. 初始化检查
     useEffect(() => {
-        // ✨ 核心修改：使用 setTimeout 0ms 将操作放入下一个事件循环
-        // 这骗过了 React，让它认为这是一个异步操作，从而不再报错
         const initAuth = setTimeout(() => {
             const storedUser = localStorage.getItem('user');
             const token = localStorage.getItem('accessToken');
@@ -41,29 +50,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             setTimeout(() => {
                 setIsLoading(false);
-            }, 2000);
+            }, 500); //稍微缩短了一点等待时间，体验会好一点
         }, 0);
 
-        // 清理函数（防止组件卸载时内存泄漏）
         return () => clearTimeout(initAuth);
     }, []);
 
     const login = async (email: string, password: string) => {
         try {
-            // 1. Invoke the service (调用服务)
             const data = await authService.login(email, password);
-
-            // 2. Persist tokens (持久化 Token)
             localStorage.setItem('accessToken', data.accessToken);
-            localStorage.setItem('refreshToken', data.refreshToken);
+            // 如果后端没返 refreshToken，这里可能会报错，建议加个判断
+            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
             localStorage.setItem('user', JSON.stringify(data.user));
-            // 3. Update Global State (更新全局状态)
             setUser(data.user);
-
-            // 4. Navigation (路由跳转)
             router.push('/');
         } catch (error) {
-            // Re-throw the error to be handled by the UI Component
+            throw error;
+        }
+    };
+
+    // ✨✨✨ 新增：注册方法实现
+    const register = async (registerData: RegisterData) => {
+        try {
+            // 1. 调用 Service 里的注册方法
+            // (注意：这里假设 authService.register 返回的数据结构和 login 一样，包含 accessToken 和 user)
+            const data = await authService.register(registerData);
+
+            // 2. 注册成功后直接"自动登录" (保存 Token)
+            localStorage.setItem('accessToken', data.accessToken);
+            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+            localStorage.setItem('user', JSON.stringify(data.user));
+
+            // 3. 更新全局状态
+            setUser(data.user);
+
+            // 4. 跳转 Dashboard
+            router.push('/');
+        } catch (error) {
             throw error;
         }
     };
@@ -77,7 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+        // ✨ 别忘了把 register 加到 value 里
+        <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
