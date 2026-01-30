@@ -13,6 +13,7 @@
     "docker:db": "docker-compose -f docker-compose.dev.yml up -d",
     "docker:stop": "docker-compose -f docker-compose.dev.yml stop",
     "docker:down": "docker-compose -f docker-compose.dev.yml down",
+    "start:prod": "node dist/main",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts"
   },
