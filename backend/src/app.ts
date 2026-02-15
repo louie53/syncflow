@@ -12,9 +12,29 @@ const app = express();
 // --- 中间件配置 ---
 app.use(helmet()); // 安全头
 // app.use(cors());   // 跨域支持
+// app.use(cors({
+//     origin: 'http://localhost:3000', // 🔒 只允许前端这个地址访问
+//     credentials: true,               // 允许携带凭证 (如果你以后要用 Cookie 或 HTTP 认证)
+// }));
 app.use(cors({
-    origin: 'http://localhost:3000', // 🔒 只允许前端这个地址访问
-    credentials: true,               // 允许携带凭证 (如果你以后要用 Cookie 或 HTTP 认证)
+    origin: function (origin, callback) {
+        // 允许没有 origin 的请求 (比如 Postman 或后端内部请求)
+        if (!origin) return callback(null, true);
+
+        // 允许 localhost (本地开发)
+        if (origin.includes('localhost')) {
+            return callback(null, true);
+        }
+
+        // 允许 Vercel 部署的任何网址 (.vercel.app)
+        if (origin.includes('.vercel.app')) {
+            return callback(null, true);
+        }
+
+        // 如果都不匹配，拒绝
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true // 允许携带 Cookie/Token
 }));
 app.use(express.json()); // 解析 JSON 请求体
 
