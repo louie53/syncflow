@@ -3,6 +3,7 @@
 // ✨ 1. 保持动态渲染
 export const dynamic = 'force-dynamic';
 
+import { Sidebar } from "@/components/sidebar";
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
@@ -36,7 +37,7 @@ export default function DashboardLayout({
         <div className="flex h-screen w-full">
             {/* 这里应该是你原来的 Sidebar 组件，虽然你在 layout 代码里可能引用了它 */}
             {/* 如果你的 layout.tsx 原本有 Sidebar，它会在这里正常渲染 */}
-
+            <Sidebar />
             {/* ⚠️ 注意：请确保这里保留了你原来 layout.tsx 里的结构！ */}
             {/* 下面是一个通用的 Dashboard 布局结构，请根据你实际的 layout.tsx 调整 */}
 
