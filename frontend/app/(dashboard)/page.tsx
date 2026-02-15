@@ -1,5 +1,8 @@
 "use client";
 
+// ✨ 1. 这里的 dynamic 配置放在最上面
+export const dynamic = 'force-dynamic';
+
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { DraggableTask } from "@/components/tasks/draggable-task";
 import { DroppableColumn } from "@/components/tasks/droppable-column";
@@ -19,15 +22,17 @@ import {
   useSensors
 } from "@dnd-kit/core";
 import { LogOut } from "lucide-react";
-import { Suspense, useState } from "react"; // ✨ 1. 引入 Suspense
+// ✨✨✨ 修正 1：App Router 必须从 next/navigation 导入 useRouter ✨✨✨
+import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-
-export const dynamic = 'force-dynamic';
-// ✨ 2. 把原来的 DashboardPage 重命名为 DashboardContent
 function DashboardContent() {
+  const router = useRouter();
   const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
+  // 假设 useAuth 返回 { user, logout, isLoading }，最好解构出 isLoading 避免闪烁
   const { user, logout } = useAuth();
+
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -35,9 +40,22 @@ function DashboardContent() {
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
+  // ✨✨✨ 路由保护逻辑 ✨✨✨
+  useEffect(() => {
+    // 确保这里的路径和你真正的登录页路径一致 (/login 或 /auth/login)
+    if (!user) {
+      router.push('/login');
+    }
+  }, [user, router]);
+
+  // ✨✨✨ 修正 2：Hooks 必须全部执行完才能 return ✨✨✨
+  // 把这个检查移动到所有 Hooks (useState, useSensors) 之后
+  if (!user) {
+    return null;
+  }
+
   const pendingCount = tasks.filter(t => t.status !== 'DONE').length;
 
-  // 将任务按状态分组
   const columns: Record<string, typeof tasks> = {
     TODO: tasks.filter(t => t.status === 'TODO'),
     IN_PROGRESS: tasks.filter(t => t.status === 'IN_PROGRESS'),
@@ -134,7 +152,6 @@ function DashboardContent() {
                 <div className="opacity-90 rotate-2 cursor-grabbing shadow-2xl scale-105 pointer-events-none">
                   <TaskCard
                     task={activeTask}
-                    // Overlay 不需要具体的功能函数，只负责展示
                     onStatusChange={() => { }}
                     onDelete={() => { }}
                     onUpdate={async () => { }}
@@ -150,7 +167,6 @@ function DashboardContent() {
   );
 }
 
-// ✨ 3. 真正导出的页面组件：用 Suspense 包裹内容组件
 export default function DashboardPage() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Dashboard...</div>}>
