@@ -22,6 +22,8 @@ import { LogOut } from "lucide-react";
 import { Suspense, useState } from "react"; // ✨ 1. 引入 Suspense
 import { toast } from "sonner";
 
+
+export const dynamic = 'force-dynamic';
 // ✨ 2. 把原来的 DashboardPage 重命名为 DashboardContent
 function DashboardContent() {
   const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
