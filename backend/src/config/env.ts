@@ -12,6 +12,7 @@ const envSchema = z.object({
   MONGO_URI: z.string().url(),
   // 必须至少 10 位
   JWT_SECRET: z.string().min(10),
+  REDIS_URL: z.string().optional(),
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.string().default('6379'),
 });
