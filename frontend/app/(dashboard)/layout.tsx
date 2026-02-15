@@ -3,8 +3,8 @@
 // ✨ 1. 保持动态渲染
 export const dynamic = 'force-dynamic';
 
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton";
 import { useAuth } from "@/context/auth-context";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -28,14 +28,7 @@ export default function DashboardLayout({
     // 如果正在加载，或者没有用户，显示全屏 Loading
     // 这样连侧边栏 (Sidebar) 都不会渲染出来！
     if (isLoading || !user) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center gap-3 text-gray-500">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                    <p className="text-sm font-medium">Loading workspace...</p>
-                </div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     // ✨ 只有登录了，才会渲染下面的 Sidebar 和 children (DashboardPage)
