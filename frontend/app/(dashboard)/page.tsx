@@ -1,6 +1,6 @@
 "use client";
 
-// ✨ 1. 这里的 dynamic 配置放在最上面
+// ✨ 1. 强制动态渲染，解决 Vercel 构建报错
 export const dynamic = 'force-dynamic';
 
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
@@ -21,17 +21,17 @@ import {
   useSensor,
   useSensors
 } from "@dnd-kit/core";
-import { LogOut } from "lucide-react";
-// ✨✨✨ 修正 1：App Router 必须从 next/navigation 导入 useRouter ✨✨✨
-import { useRouter } from "next/navigation";
+import { Loader2, LogOut } from "lucide-react"; // ✨ 引入 Loader2 做加载动画
+import { useRouter } from "next/navigation"; // ✨ 正确的 App Router 导入
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 function DashboardContent() {
   const router = useRouter();
-  const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
-  // 假设 useAuth 返回 { user, logout, isLoading }，最好解构出 isLoading 避免闪烁
-  const { user, logout } = useAuth();
+  const { tasks, isLoading: tasksLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
+
+  // 尝试解构 isLoading (如果你的 AuthContext 支持)。如果不支也没关系，下面的 !user 也能工作。
+  const { user, logout, isLoading: authLoading } = useAuth();
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
@@ -40,26 +40,37 @@ function DashboardContent() {
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
-  // ✨✨✨ 路由保护逻辑 ✨✨✨
+  // ✨✨✨ 路由保护：未登录直接跳走 ✨✨✨
   useEffect(() => {
-    // 确保这里的路径和你真正的登录页路径一致 (/login 或 /auth/login)
-    if (!user) {
+    // 如果认证加载完了(authLoading为false) 且 没有用户，则跳转
+    // 如果你没有 authLoading，直接用 !user 也是可以的
+    if (!user && authLoading !== true) {
       router.push('/login');
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
-  // ✨✨✨ 修正 2：Hooks 必须全部执行完才能 return ✨✨✨
-  // 把这个检查移动到所有 Hooks (useState, useSensors) 之后
-  if (!user) {
-    return null;
+  // ✨✨✨ 关键防闪烁逻辑 ✨✨✨
+  // 在 Hooks 执行完之后，但在渲染主要内容之前进行拦截。
+  // 如果没有用户，或者正在加载认证，显示 Loading 界面，绝对不要渲染 Dashboard！
+  if (!user || authLoading === true) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3 text-gray-500">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <p className="text-sm font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
-  const pendingCount = tasks.filter(t => t.status !== 'DONE').length;
+  // --- 下面是正常的业务逻辑，只有登录用户才会运行到这里 ---
+
+  const pendingCount = tasks?.filter(t => t.status !== 'DONE').length || 0;
 
   const columns: Record<string, typeof tasks> = {
-    TODO: tasks.filter(t => t.status === 'TODO'),
-    IN_PROGRESS: tasks.filter(t => t.status === 'IN_PROGRESS'),
-    DONE: tasks.filter(t => t.status === 'DONE'),
+    TODO: tasks?.filter(t => t.status === 'TODO') || [],
+    IN_PROGRESS: tasks?.filter(t => t.status === 'IN_PROGRESS') || [],
+    DONE: tasks?.filter(t => t.status === 'DONE') || [],
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -110,8 +121,9 @@ function DashboardContent() {
       </div>
 
       <div className="flex-1 overflow-x-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-gray-400 animate-pulse">
+        {tasksLoading ? (
+          <div className="flex items-center justify-center h-64 text-gray-400">
+            <Loader2 className="h-8 w-8 animate-spin mr-2" />
             Loading tasks...
           </div>
         ) : (
