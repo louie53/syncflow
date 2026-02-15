@@ -4,7 +4,7 @@ import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { DraggableTask } from "@/components/tasks/draggable-task";
 import { DroppableColumn } from "@/components/tasks/droppable-column";
 import { TaskCard } from "@/components/tasks/task-card";
-import { Button } from "@/components/ui/button"; // 确保引入 Button
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useTasks } from "@/hooks/use-tasks";
 import { Task, TaskStatus } from "@/types/task";
@@ -18,15 +18,14 @@ import {
   useSensor,
   useSensors
 } from "@dnd-kit/core";
-import { LogOut } from "lucide-react"; // ✨ 引入 LogOut 图标
-import { useState } from "react";
+import { LogOut } from "lucide-react";
+import { Suspense, useState } from "react"; // ✨ 1. 引入 Suspense
 import { toast } from "sonner";
-export const dynamic = 'force-dynamic';
-export default function DashboardPage() {
-  const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
-  // ✨ 解构出 logout 方法
-  const { user, logout } = useAuth();
 
+// ✨ 2. 把原来的 DashboardPage 重命名为 DashboardContent
+function DashboardContent() {
+  const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
+  const { user, logout } = useAuth();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -36,6 +35,7 @@ export default function DashboardPage() {
 
   const pendingCount = tasks.filter(t => t.status !== 'DONE').length;
 
+  // 将任务按状态分组
   const columns: Record<string, typeof tasks> = {
     TODO: tasks.filter(t => t.status === 'TODO'),
     IN_PROGRESS: tasks.filter(t => t.status === 'IN_PROGRESS'),
@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    setActiveTask(active.data.current as Task);
+    setActiveTask(active.data.current?.task as Task);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -54,7 +54,7 @@ export default function DashboardPage() {
     if (!over) return;
 
     const taskId = active.id as string;
-    const currentStatus = active.data.current?.status;
+    const currentStatus = active.data.current?.task?.status;
     const newStatus = over.id as TaskStatus;
 
     if (currentStatus && currentStatus !== newStatus) {
@@ -64,7 +64,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-8 h-screen flex flex-col bg-gray-50/50"> {/* 加个背景色稍微好看点 */}
+    <div className="p-8 h-screen flex flex-col bg-gray-50/50">
       <div className="flex items-center justify-between mb-8 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -75,10 +75,8 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* ✨✨✨ 修改这里：把按钮包在一个 div 里 */}
         <div className="flex items-center gap-3">
           <CreateTaskDialog onSuccess={refreshTasks} />
-
           <Button
             variant="outline"
             onClick={logout}
@@ -91,26 +89,26 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 下面的代码不变 */}
       <div className="flex-1 overflow-x-auto">
         {isLoading ? (
-          <div className="text-center py-10 text-gray-400">Loading tasks...</div>
+          <div className="flex items-center justify-center h-64 text-gray-400 animate-pulse">
+            Loading tasks...
+          </div>
         ) : (
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full min-w-[800px]">
-
               {(['TODO', 'IN_PROGRESS', 'DONE'] as TaskStatus[]).map((status) => (
                 <DroppableColumn
                   key={status}
                   id={status}
                   title={status.replace('_', ' ')}
-                  count={columns[status].length}
+                  count={columns[status]?.length || 0}
                   colorClass={
                     status === 'TODO' ? 'bg-gray-400' :
                       status === 'IN_PROGRESS' ? 'bg-blue-500' : 'bg-green-500'
                   }
                 >
-                  {columns[status].map((task) => (
+                  {columns[status]?.map((task) => (
                     <DraggableTask
                       key={task._id}
                       task={task}
@@ -120,21 +118,21 @@ export default function DashboardPage() {
                       onRefresh={refreshTasks}
                     />
                   ))}
-                  {columns[status].length === 0 && (
-                    <div className="h-24 border-2 border-dashed border-gray-100 rounded-lg flex items-center justify-center text-gray-300 text-sm">
-                      Drop here
+                  {columns[status]?.length === 0 && (
+                    <div className="h-24 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-sm bg-gray-50">
+                      Drop tasks here
                     </div>
                   )}
                 </DroppableColumn>
               ))}
-
             </div>
 
             <DragOverlay>
               {activeTask ? (
-                <div className="opacity-90 rotate-2 cursor-grabbing shadow-2xl scale-105">
+                <div className="opacity-90 rotate-2 cursor-grabbing shadow-2xl scale-105 pointer-events-none">
                   <TaskCard
                     task={activeTask}
+                    // Overlay 不需要具体的功能函数，只负责展示
                     onStatusChange={() => { }}
                     onDelete={() => { }}
                     onUpdate={async () => { }}
@@ -143,10 +141,18 @@ export default function DashboardPage() {
                 </div>
               ) : null}
             </DragOverlay>
-
           </DndContext>
         )}
       </div>
     </div>
+  );
+}
+
+// ✨ 3. 真正导出的页面组件：用 Suspense 包裹内容组件
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Dashboard...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
