@@ -21,7 +21,7 @@ import {
 import { LogOut } from "lucide-react"; // ✨ 引入 LogOut 图标
 import { useState } from "react";
 import { toast } from "sonner";
-
+export const dynamic = 'force-dynamic';
 export default function DashboardPage() {
   const { tasks, isLoading, updateStatus, deleteTask, refreshTasks, updateTask } = useTasks();
   // ✨ 解构出 logout 方法
