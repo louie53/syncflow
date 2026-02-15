@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 // 👇 1. 引入 Toaster
 import { Toaster } from "sonner";
-
+export const dynamic = 'force-dynamic';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
