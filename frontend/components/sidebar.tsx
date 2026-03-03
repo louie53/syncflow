@@ -3,7 +3,6 @@
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-// 👇 引入刚才写的弹窗组件
 import { CreateWorkspaceDialog } from "./workspace/create-workspace-dialog";
 
 export function Sidebar() {
@@ -11,12 +10,10 @@ export function Sidebar() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // 👇 控制弹窗显示的状态
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const currentWorkspaceId = searchParams.get('workspaceId');
 
-    // 👇 下面这行如果有报错，看最后的“补充步骤”
     const { workspaces, loading, refreshWorkspaces } = useWorkspaces();
 
     if (pathname === "/login" || pathname === "/register") {
@@ -27,11 +24,13 @@ export function Sidebar() {
         router.push(`/?workspaceId=${id}`);
     };
 
-    // ✨ 创建成功后的回调：刷新列表，并跳转到新工作区
     const handleCreateSuccess = async (newId: string) => {
-        await refreshWorkspaces(); // 重新拉取列表
-        router.push(`/?workspaceId=${newId}`); // 自动跳转过去
+        await refreshWorkspaces();
+        router.push(`/?workspaceId=${newId}`);
     };
+
+    // ✨ 核心修复逻辑：获取实际应该高亮的 ID
+    const activeId = currentWorkspaceId || (workspaces?.length > 0 ? workspaces[0]._id : null);
 
     return (
         <>
@@ -46,7 +45,8 @@ export function Sidebar() {
                             <div className="text-sm text-gray-400 animate-pulse">Loading...</div>
                         ) : (
                             workspaces.map((ws) => {
-                                const isActive = currentWorkspaceId === ws._id;
+                                // ✨ 使用我们算出来的 activeId 进行判断
+                                const isActive = activeId === ws._id;
                                 return (
                                     <div
                                         key={ws._id}
@@ -79,7 +79,6 @@ export function Sidebar() {
                 </div>
 
                 <div className="mt-auto border-t pt-4">
-                    {/* 👇 点击按钮，打开弹窗 */}
                     <button
                         onClick={() => setIsDialogOpen(true)}
                         className="text-sm text-gray-500 hover:text-gray-900 w-full text-left flex items-center px-2 py-2 rounded-md hover:bg-gray-200 transition-colors"
@@ -89,7 +88,6 @@ export function Sidebar() {
                 </div>
             </aside>
 
-            {/* 👇 渲染弹窗组件 */}
             <CreateWorkspaceDialog
                 isOpen={isDialogOpen}
                 onClose={() => setIsDialogOpen(false)}
