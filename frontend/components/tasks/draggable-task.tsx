@@ -14,13 +14,14 @@ interface DraggableTaskProps {
 }
 
 export function DraggableTask({ task, onStatusChange, onDelete, onUpdate, onRefresh }: DraggableTaskProps) {
-    // ✨ 判断是否已完成
+    // 判断是否已完成
     const isDone = task.status === 'DONE';
 
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: task._id,
-        data: { ...task },
-        // ✨✨✨ 核心修改：如果是 DONE 状态，禁用拖拽功能
+        // ✨✨✨ 修复点：去掉三个点，直接把整个 task 对象传进去！
+        data: { task },
+        // 如果是 DONE 状态，禁用拖拽功能
         disabled: isDone,
     });
 
@@ -30,9 +31,7 @@ export function DraggableTask({ task, onStatusChange, onDelete, onUpdate, onRefr
         opacity: isDragging ? 0 : 1,
         touchAction: "none",
         transformOrigin: "0 0",
-        // ✨✨✨ 样式优化：
-        // 1. 如果是 Done，鼠标变成默认箭头，否则是小手
-        // 2. 如果是 Done，稍微变淡一点，表示"归档/不可动"
+        // 样式优化：
         cursor: isDone ? "default" : "grab",
         filter: isDone ? "grayscale(10%) opacity(0.8)" : "none",
     };
