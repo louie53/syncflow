@@ -1,32 +1,11 @@
 'use client';
 
 import { authService } from '@/services/auth.service'; // Import the service
+import { AuthContextType, RegisterData, User } from '@/types';
 import { useRouter } from 'next/navigation';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-interface User {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-}
 
-// ✨ 定义注册需要的数据类型
-interface RegisterData {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-}
-
-interface AuthContextType {
-    user: User | null;
-    login: (email: string, password: string) => Promise<void>;
-    // ✨ 新增 register 方法定义
-    register: (data: RegisterData) => Promise<void>;
-    logout: () => void;
-    isLoading: boolean;
-}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

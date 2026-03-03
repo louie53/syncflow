@@ -1,11 +1,12 @@
+'use client';
+
 import { useAuth } from '@/context/auth-context';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { taskService } from '@/services/task.service';
-// 👇 1. 引入 TaskPriority
 import { Task, TaskPriority, TaskStatus } from '@/types/task';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from "sonner"; // 引入
+import { useCallback, useEffect, useMemo, useState } from 'react'; // ✨ 引入 useMemo
+import { toast } from "sonner";
 
 export function useTasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -17,15 +18,33 @@ export function useTasks() {
     const searchParams = useSearchParams();
     const urlWorkspaceId = searchParams.get('workspaceId');
 
-    const activeWorkspaceId = urlWorkspaceId || workspaces[0]?._id;
+    // ✨✨✨ 关键修改：精准计算 ID，防止对象溜进去 ✨✨✨
+    const activeWorkspaceId = useMemo(() => {
+        // 1. 优先使用 URL 中的 ID
+        if (urlWorkspaceId && typeof urlWorkspaceId === 'string' && urlWorkspaceId !== 'undefined') {
+            return urlWorkspaceId;
+        }
+        // 2. 其次使用第一个工作区的 ID
+        if (!workspaceLoading && workspaces && workspaces.length > 0) {
+            const firstWs = workspaces[0];
+            // 确保取的是属性而非整个对象
+            return typeof firstWs === 'object' ? firstWs._id : firstWs;
+        }
+        return null;
+    }, [urlWorkspaceId, workspaces, workspaceLoading]);
 
     const fetchTasks = useCallback(async () => {
-        if (!user || workspaceLoading) return;
+        // ✨ 防御逻辑：只有当 ID 是合法的 24 位字符串时才发请求
+        if (!user || workspaceLoading || !activeWorkspaceId) return;
+
+        // MongoDB ObjectId 校验正则
+        if (!/^[0-9a-fA-F]{24}$/.test(activeWorkspaceId)) {
+            console.warn("⚠️ 拦截到不合法的 ID 请求:", activeWorkspaceId);
+            return;
+        }
 
         try {
             setIsLoading(true);
-
-            // 使用我们计算出来的 activeWorkspaceId
             const data = await taskService.getAll(activeWorkspaceId);
             setTasks(data);
         } catch (error) {
@@ -33,17 +52,17 @@ export function useTasks() {
         } finally {
             setIsLoading(false);
         }
-    }, [user, activeWorkspaceId, workspaceLoading]); // 依赖项加上 activeWorkspaceId
+    }, [user, activeWorkspaceId, workspaceLoading]);
 
-    // 👇 2. 修改 payload 类型：priority?: string -> priority?: TaskPriority
+    // --- 以下是原本的所有逻辑，全部保留 ---
+
     const createTask = async (payload: { title: string; description?: string; priority?: TaskPriority }) => {
         try {
             if (!activeWorkspaceId) {
-                alert("请先创建一个工作区！");
+                toast.error("Please select or create a workspace first!");
                 return false;
             }
 
-            // 使用当前选中的工作区 ID
             const newTask = await taskService.create({
                 ...payload,
                 workspaceId: activeWorkspaceId
@@ -60,20 +79,17 @@ export function useTasks() {
     };
 
     const updateStatus = async (id: string, newStatus: TaskStatus) => {
-        // 乐观更新 UI
         setTasks((prev) => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
         try {
             await taskService.updateStatus(id, newStatus);
-            // toast.success("Task updated successfully");
         } catch (error) {
             console.error('Update failed', error);
             toast.error("Failed to update task");
-            fetchTasks(); // 失败回滚
+            fetchTasks();
         }
     };
 
     const deleteTask = async (id: string) => {
-        // 乐观更新 UI
         setTasks((prev) => prev.filter(t => t._id !== id));
         try {
             await taskService.delete(id);
@@ -81,13 +97,11 @@ export function useTasks() {
         } catch (error) {
             console.error('Delete failed', error);
             toast.error("Failed to delete task");
-            fetchTasks(); // 失败回滚
+            fetchTasks();
         }
     };
 
-    // 👇 3. 修改 payload 类型：priority?: string -> priority?: TaskPriority
     const updateTask = async (id: string, payload: { title?: string; description?: string; priority?: TaskPriority }) => {
-        // 乐观更新：现在这里的类型匹配了，TS 不会报错了
         setTasks((prev) => prev.map(t =>
             t._id === id ? { ...t, ...payload } : t
         ));
@@ -101,7 +115,10 @@ export function useTasks() {
             fetchTasks();
         }
     };
-
+    // ✨ 新增：专门给 Socket 用的本地更新方法，不发 API
+    const updateTaskLocally = useCallback((id: string, newStatus: TaskStatus) => {
+        setTasks((prev) => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
+    }, []);
     useEffect(() => {
         fetchTasks();
     }, [fetchTasks]);
@@ -114,6 +131,7 @@ export function useTasks() {
         deleteTask,
         refreshTasks: fetchTasks,
         activeWorkspaceId,
-        updateTask // 导出这个方法
+        updateTask,
+        updateTaskLocally // ✨ 暴露给外部组件使用
     };
 }

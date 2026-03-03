@@ -1,74 +1,54 @@
 "use client";
 
-import { useState } from "react";
-// 👇 引入你刚才展示的 service
-import { workspaceService } from "@/services/workspace.service";
+import { useCreateWorkspace } from "@/hooks/use-create-workspace";
+import { Workspace } from "@/types";
+import { Loader2, X } from "lucide-react";
 
 interface CreateWorkspaceDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: (newWorkspaceId: string) => void; // 成功后回调
+    onSuccess: (workspace: Workspace) => void;
 }
 
 export function CreateWorkspaceDialog({ isOpen, onClose, onSuccess }: CreateWorkspaceDialogProps) {
-    const [name, setName] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    // ✨ 使用自定义 Hook
+    const { name, setName, isLoading, handleCreate } = useCreateWorkspace(onSuccess);
 
     if (!isOpen) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const onSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name.trim()) return;
-
-        try {
-            setIsLoading(true);
-            // 调用你的 service
-            const newWorkspace = await workspaceService.create(name);
-            setName(""); // 清空输入框
-            onSuccess(newWorkspace._id); // 通知父组件成功了
-            onClose(); // 关闭弹窗
-        } catch (error) {
-            console.error("Failed to create workspace", error);
-            alert("Failed to create workspace");
-        } finally {
-            setIsLoading(false);
-        }
+        const success = await handleCreate();
+        if (success) onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Workspace</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <div className="flex justify-between mb-6">
+                    <h2 className="text-xl font-bold">Create Workspace</h2>
+                    <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Workspace Name
-                        </label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Work, Personal, Side Project"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                        />
-                    </div>
+                <form onSubmit={onSubmit} className="space-y-6">
+                    <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Name your workspace..."
+                        disabled={isLoading}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                    />
 
                     <div className="flex justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                            Cancel
-                        </button>
+                        <button type="button" onClick={onClose} className="text-gray-500">Cancel</button>
                         <button
                             type="submit"
                             disabled={isLoading || !name.trim()}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                         >
-                            {isLoading ? "Creating..." : "Create Workspace"}
+                            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Create
                         </button>
                     </div>
                 </form>

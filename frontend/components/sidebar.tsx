@@ -1,6 +1,7 @@
 "use client";
 
 import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { Workspace } from "@/types";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { CreateWorkspaceDialog } from "./workspace/create-workspace-dialog";
@@ -23,10 +24,10 @@ export function Sidebar() {
     const handleWorkspaceClick = (id: string) => {
         router.push(`/?workspaceId=${id}`);
     };
-
-    const handleCreateSuccess = async (newId: string) => {
-        await refreshWorkspaces();
-        router.push(`/?workspaceId=${newId}`);
+    // ✨✨✨ 2. 核心修复：接收 Workspace 对象，提取 _id ✨✨✨
+    const handleCreateSuccess = async (newWorkspace: Workspace) => {
+        await refreshWorkspaces(); // 刷新左侧列表
+        router.push(`/?workspaceId=${newWorkspace._id}`); // 用对象的 _id 去跳转
     };
 
     // ✨ 核心修复逻辑：获取实际应该高亮的 ID
