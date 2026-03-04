@@ -1,4 +1,5 @@
-import { Workspace, workspaceService } from '@/services/workspace.service';
+import { workspaceService } from '@/services/workspace.service';
+import { Workspace } from '@/types';
 import { useEffect, useState } from 'react';
 
 export function useWorkspaces() {

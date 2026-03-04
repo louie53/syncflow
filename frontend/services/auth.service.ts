@@ -1,11 +1,7 @@
 // 👇 Import the shared instance
 import { apiClient } from '@/lib/api-client';
-interface RegisterParams {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-}
+import { RegisterParams } from '@/types';
+
 export const authService = {
     login: async (email: string, password: string) => {
         // 这里的 URL 只需要写后缀
