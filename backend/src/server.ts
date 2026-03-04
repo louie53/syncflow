@@ -27,10 +27,18 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log(`🟢 客户端已连接! Socket ID: ${socket.id}`);
     // 🪄 魔法 1：监听用户加入特定的工作区房间
-    socket.on('join_workspace', (workspaceId: string) => {
-        if (!workspaceId) return;
-        socket.join(workspaceId);
-        console.log(`🏠 Socket [${socket.id}] 加入了工作区: ${workspaceId}`);
+    socket.on('join_workspace', (data: { workspaceId: string; userName?: string }) => {
+
+        // 兼容以前只传 string 的情况，或者传对象的情况
+        const room = typeof data === 'string' ? data : data.workspaceId;
+        const name = typeof data === 'string' ? 'Someone' : (data.userName || 'Someone');
+        if (!room) return;
+        socket.join(room);
+        console.log(`🏠 Socket [${socket.id}] 加入了工作区: ${room} (用户: ${name})`);
+        // ✨ 核心魔法：告诉房间里【除了自己以外】的其他人，我进来了
+        socket.to(room).emit("user_joined_broadcast", {
+            userName: name
+        });
     });
 
     // (可选) 监听用户离开房间，比如切换工作区时

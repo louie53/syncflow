@@ -27,7 +27,10 @@ export function useDashboardLogic(
 
         const joinRoom = () => {
             console.log("🏠 申请加入房间:", activeWorkspaceId);
-            socket.emit("join_workspace", activeWorkspaceId);
+            socket.emit("join_workspace", {
+                workspaceId: activeWorkspaceId,
+                userName: user?.firstName || "A team member"
+            });
         };
 
         // 如果已经连接，直接进房间
@@ -55,9 +58,14 @@ export function useDashboardLogic(
             updateTaskLocally(data.taskId, data.newStatus);
             toast.info(`Task moved to ${data.newStatus.replace('_', ' ')} by ${data.userName}`);
         };
-
+        // ✨ 新增：处理新用户加入的监听
+        const handleUserJoined = (data: { userName: string }) => {
+            console.log("👋 收到进房通知:", data);
+            toast.success(`${data.userName} joined the workspace! 🟢`);
+        };
         // 绑定监听
         socket.on("task_moved_broadcast", handleTaskMoved);
+        socket.on("user_joined_broadcast", handleUserJoined); // 👈 给雷达通电！
 
         return () => {
             // 清理监听
